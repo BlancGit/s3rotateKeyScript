@@ -16,8 +16,8 @@ CLIENT_SECRET = os.getenv("CISCO_CLIENT_SECRET")
 # =========================================================
 # 2. DISCORD CONFIGURATION
 # =========================================================
-DISCORD_TEAM_WEBHOOK = os.getenv("DISCORD_TEAM_WEBHOOK")
-DISCORD_ADMIN_WEBHOOK = os.getenv("DISCORD_ADMIN_WEBHOOK")
+# Works with simple 'TEAM' name or advanced 'PUBLIC' name
+DISCORD_TEAM_WEBHOOK = os.getenv("DISCORD_TEAM_WEBHOOK") or os.getenv("DISCORD_PUBLIC_WEBHOOK")
 
 # =========================================================
 # 3. SPLUNK CONFIGURATION
@@ -33,16 +33,16 @@ SPLUNK_INDEX = os.getenv("SPLUNK_INDEX")
 # 4. LINE CONFIGURATION
 # =========================================================
 LINE_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
-LINE_USER_ID_A = os.getenv("LINE_USER_ID_A")
-LINE_USER_ID_B = os.getenv("LINE_USER_ID_B")
+# Fallback to User A (Data Custodian) if using advanced .env
+LINE_USER_ID = os.getenv("LINE_USER_ID") or os.getenv("LINE_USER_ID_DATA")
 
 # =========================================================
 # 5. EMAIL CONFIGURATION (SendGrid)
 # =========================================================
 SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY")
 SENDER_EMAIL = os.getenv("SENDER_EMAIL")
-RECIPIENT_EMAIL_A = os.getenv("RECIPIENT_EMAIL_A")
-RECIPIENT_EMAIL_B = os.getenv("RECIPIENT_EMAIL_B")
+# Fallback to User A (Data Custodian) if using advanced .env
+RECIPIENT_EMAIL = os.getenv("RECIPIENT_EMAIL") or os.getenv("RECIPIENT_EMAIL_DATA")
 
 def send_sendgrid_email(target_email, subject, body):
     """
@@ -159,45 +159,48 @@ def rotate_keys_simple():
         # 2. UPDATE SPLUNK
         update_splunk_config(new_access_key, new_secret_key)
         
-        # 3. NOTIFY VIA DISCORD
-        print("\nSending Discord notifications...")
-        notification_text = (
-            f"🚀 **Cisco S3 Key Rotation Successful**\n\n"
-            f"**Access Key ID:** `{new_access_key}`\n"
-            f"**Secret Key:** `{new_secret_key}`\n\n"
-            f"Splunk has been updated automatically."
-        )
-        
-        payload = {"content": notification_text}
+        # =========================================================
+        # 3. NOTIFY VIA DISCORD (Toggle by commenting out)
+        # =========================================================
         if DISCORD_TEAM_WEBHOOK:
+            print("\nSending Discord notifications...")
+            notification_text = (
+                f"🚀 **Cisco S3 Key Rotation Successful**\n\n"
+                f"**Access Key ID:** `{new_access_key}`\n"
+                f"**Secret Key:** `{new_secret_key}`\n\n"
+                f"Splunk has been updated automatically."
+            )
+            payload = {"content": notification_text}
             requests.post(DISCORD_TEAM_WEBHOOK, json=payload)
-        if DISCORD_ADMIN_WEBHOOK:
-            requests.post(DISCORD_ADMIN_WEBHOOK, json=payload)
 
-        # 4. NOTIFY VIA LINE
-        print("Sending LINE notifications...")
-        line_msg = f"Cisco S3 Keys Rotated\n\nAccess Key: {new_access_key}\nSecret: {new_secret_key}"
-        send_line_push(LINE_USER_ID_A, line_msg)
-        send_line_push(LINE_USER_ID_B, line_msg)
+        # =========================================================
+        # 4. NOTIFY VIA LINE (Toggle by commenting out)
+        # =========================================================
+        if LINE_USER_ID:
+            print("Sending LINE notifications...")
+            line_msg = f"Cisco S3 Keys Rotated\n\nAccess Key: {new_access_key}\nSecret: {new_secret_key}"
+            send_line_push(LINE_USER_ID, line_msg)
 
-        # 5. NOTIFY VIA EMAIL (SENDGRID)
-        print("Sending Email notifications...")
-        email_subject = "ACTION REQUIRED: Cisco S3 Keys Rotated"
-        email_body = f"""
-        Hello,
+        # =========================================================
+        # 5. NOTIFY VIA EMAIL (Toggle by commenting out)
+        # =========================================================
+        if RECIPIENT_EMAIL:
+            print("Sending Email notifications...")
+            email_subject = "ACTION REQUIRED: Cisco S3 Keys Rotated"
+            email_body = f"""
+            Hello,
 
-        The Cisco S3 keys have been rotated.
-        
-        Access Key ID: {new_access_key}
-        Secret Access Key: {new_secret_key}
+            The Cisco S3 keys have been rotated.
+            
+            Access Key ID: {new_access_key}
+            Secret Access Key: {new_secret_key}
 
-        Splunk has been updated automatically.
+            Splunk has been updated automatically.
 
-        Regards,
-        S3 Rotation Bot
-        """
-        send_sendgrid_email(RECIPIENT_EMAIL_A, email_subject, email_body)
-        send_sendgrid_email(RECIPIENT_EMAIL_B, email_subject, email_body)
+            Regards,
+            S3 Rotation Bot
+            """
+            send_sendgrid_email(RECIPIENT_EMAIL, email_subject, email_body)
         
         print("\nProcess complete!")
 

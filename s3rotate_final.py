@@ -197,74 +197,84 @@ def rotate_keys_discord():
         print("CRITICAL: MASTER ENCRYPTION KEY (Sending to Admin Channel...)")
         print("="*60)
 
-        # --- PART 3: SEND TO DISCORD ---
+        # =========================================================
+        # 3. NOTIFY VIA DISCORD (Toggle by commenting out)
+        # =========================================================
         # 1. Send Encrypted File to Public Channel
-        print("\nSending encrypted file to Public Discord...")
-        
-        public_payload = {
-            "content": "🚀 **Cisco S3 Key Rotation Successful**\n\nThe keys have been rotated and encrypted. The encrypted payload is attached below.\n\n**Action Required:** Download the file and use the `decrypt_keys.py` utility with the Master Key provided in the private Admin channel."
-        }
-        
-        with open(encrypted_filename, 'rb') as f_upload:
-            files = {'file': (encrypted_filename, f_upload)}
-            requests.post(DISCORD_WEBHOOK_URL, data=public_payload, files=files)
+        if DISCORD_WEBHOOK_URL:
+            print("\nSending encrypted file to Public Discord...")
+            public_payload = {
+                "content": "🚀 **Cisco S3 Key Rotation Successful**\n\nThe keys have been rotated and encrypted. The encrypted payload is attached below.\n\n**Action Required:** Download the file and use the `decrypt_keys.py` utility with the Master Key provided in the private Admin channel."
+            }
+            with open(encrypted_filename, 'rb') as f_upload:
+                files = {'file': (encrypted_filename, f_upload)}
+                requests.post(DISCORD_WEBHOOK_URL, data=public_payload, files=files)
         
         # 2. Send Master Key to Private Admin Channel
-        print("Sending Master Key to Admin Channel...")
-        current_date = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        
-        admin_content = f"🔑 **URGENT: Master Key for S3 Rotation**\n\n**Timestamp:** {current_date}\n\n**Master Key:** `{decoded_master_key}`\n\nUse this key with `decrypt_keys.py` to unlock the latest `s3_credentials.enc` file."
-        
-        admin_payload = {"content": admin_content}
-        requests.post(ADMIN_WEBHOOK_URL, json=admin_payload)
-        print("SUCCESS! Master Key delivered to Admin.")
+        if ADMIN_WEBHOOK_URL:
+            print("Sending Master Key to Admin Channel...")
+            current_date = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            admin_content = f"🔑 **URGENT: Master Key for S3 Rotation**\n\n**Timestamp:** {current_date}\n\n**Master Key:** `{decoded_master_key}`\n\nUse this key with `decrypt_keys.py` to unlock the latest `s3_credentials.enc` file."
+            admin_payload = {"content": admin_content}
+            requests.post(ADMIN_WEBHOOK_URL, json=admin_payload)
+            print("SUCCESS! Master Key delivered to Admin.")
 
-        # --- PART 4: SECURE LINE SPLIT DELIVERY ---
-        print("\nPerforming secure split-delivery on LINE...")
-        b64_data = base64.b64encode(encrypted_data).decode('utf-8')
-        
-        line_data_msg = f"📦 S3 ENCRYPTED DATA (Part 1/2)\n\nPayload:\n{b64_data}\n\nNote: This data is useless without the Master Key held by User B."
-        send_line_push(LINE_USER_ID_DATA, line_data_msg)
-        
-        line_key_msg = f"🔑 S3 MASTER KEY (Part 2/2)\n\nKey: {decoded_master_key}\n\nNote: Use this to unlock the data held by User A."
-        send_line_push(LINE_USER_ID_KEY, line_key_msg)
-        print("SUCCESS! LINE split-delivery complete.")
+        # =========================================================
+        # 4. NOTIFY VIA LINE (Toggle by commenting out)
+        # =========================================================
+        if LINE_USER_ID_DATA or LINE_USER_ID_KEY:
+            print("\nPerforming secure split-delivery on LINE...")
+            b64_data = base64.b64encode(encrypted_data).decode('utf-8')
+            
+            if LINE_USER_ID_DATA:
+                line_data_msg = f"📦 S3 ENCRYPTED DATA (Part 1/2)\n\nPayload:\n{b64_data}\n\nNote: This data is useless without the Master Key held by User B."
+                send_line_push(LINE_USER_ID_DATA, line_data_msg)
+            
+            if LINE_USER_ID_KEY:
+                line_key_msg = f"🔑 S3 MASTER KEY (Part 2/2)\n\nKey: {decoded_master_key}\n\nNote: Use this to unlock the data held by User A."
+                send_line_push(LINE_USER_ID_KEY, line_key_msg)
+            print("SUCCESS! LINE split-delivery complete.")
 
-        # --- PART 5: SECURE EMAIL SPLIT DELIVERY (SENDGRID) ---
-        print("\nPerforming secure split-delivery on Email...")
+        # =========================================================
+        # 5. NOTIFY VIA EMAIL (Toggle by commenting out)
+        # =========================================================
+        if RECIPIENT_EMAIL_DATA or RECIPIENT_EMAIL_KEY:
+            print("\nPerforming secure split-delivery on Email...")
 
-        # A. Send Encrypted File to Recipient A (Data Custodian)
-        email_data_subject = "ACTION REQUIRED: S3 Keys Rotated (Encrypted Payload)"
-        email_data_body = """
-        Hello Admin,
+            # A. Send Encrypted File to Recipient A (Data Custodian)
+            if RECIPIENT_EMAIL_DATA:
+                email_data_subject = "ACTION REQUIRED: S3 Keys Rotated (Encrypted Payload)"
+                email_data_body = """
+                Hello Admin,
 
-        The Cisco SSE S3 keys have been rotated and encrypted. 
-        The encrypted payload is attached to this email.
+                The Cisco SSE S3 keys have been rotated and encrypted. 
+                The encrypted payload is attached to this email.
 
-        Note: This file is useless without the Master Key held by User B.
+                Note: This file is useless without the Master Key held by User B.
 
-        Regards,
-        S3 Key Rotation Automation
-        """
-        send_sendgrid_email(RECIPIENT_EMAIL_DATA, email_data_subject, email_data_body, attachment_path=encrypted_filename)
+                Regards,
+                S3 Key Rotation Automation
+                """
+                send_sendgrid_email(RECIPIENT_EMAIL_DATA, email_data_subject, email_data_body, attachment_path=encrypted_filename)
 
-        # B. Send Master Key to Recipient B (Key Custodian)
-        email_key_subject = "ACTION REQUIRED: S3 Keys Rotated (Master Key)"
-        email_key_body = f"""
-        Hello Admin,
+            # B. Send Master Key to Recipient B (Key Custodian)
+            if RECIPIENT_EMAIL_KEY:
+                email_key_subject = "ACTION REQUIRED: S3 Keys Rotated (Master Key)"
+                email_key_body = f"""
+                Hello Admin,
 
-        The Cisco SSE S3 keys have been rotated and encrypted.
-        
-        MASTER ENCRYPTION KEY: {decoded_master_key}
-        
-        Note: Use this key with 'decrypt_keys.py' to unlock the data held by User A.
+                The Cisco SSE S3 keys have been rotated and encrypted.
+                
+                MASTER ENCRYPTION KEY: {decoded_master_key}
+                
+                Note: Use this key with 'decrypt_keys.py' to unlock the data held by User A.
 
-        Regards,
-        S3 Key Rotation Automation
-        """
-        send_sendgrid_email(RECIPIENT_EMAIL_KEY, email_key_subject, email_key_body)
-        
-        print("SUCCESS! Email split-delivery complete.")
+                Regards,
+                S3 Key Rotation Automation
+                """
+                send_sendgrid_email(RECIPIENT_EMAIL_KEY, email_key_subject, email_key_body)
+            
+            print("SUCCESS! Email split-delivery complete.")
         
         # Cleanup
         if os.path.exists(encrypted_filename):
