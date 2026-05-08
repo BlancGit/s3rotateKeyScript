@@ -20,6 +20,11 @@ CLIENT_SECRET = os.getenv("CISCO_CLIENT_SECRET")
 DISCORD_TEAM_WEBHOOK = os.getenv("DISCORD_TEAM_WEBHOOK") or os.getenv("DISCORD_PUBLIC_WEBHOOK")
 
 # =========================================================
+# 2.1 WEBEX CONFIGURATION
+# =========================================================
+WEBEX_WEBHOOK_URL = os.getenv("WEBEX_WEBHOOK_URL")
+
+# =========================================================
 # 3. SPLUNK CONFIGURATION
 # =========================================================
 SPLUNK_ACCOUNT_CONFIG_PATH = os.getenv("SPLUNK_ACCOUNT_CONFIG_PATH")
@@ -96,6 +101,23 @@ def send_line_push(target_uid, message_text):
             print(f"Failed to send LINE message to {target_uid}. Status: {response.status_code}")
     except Exception as e:
         print(f"Error sending LINE message: {e}")
+
+def send_webex_notification(webhook_url, message_text):
+    """
+    Sends a markdown notification to a Webex Room.
+    """
+    if not webhook_url:
+        return
+
+    headers = {"Content-Type": "application/json"}
+    payload = {"markdown": message_text}
+    
+    try:
+        response = requests.post(webhook_url, json=payload, headers=headers)
+        if response.status_code not in [200, 204]:
+            print(f"Failed to send Webex message. Status: {response.status_code}")
+    except Exception as e:
+        print(f"Error sending Webex message: {e}")
 
 def update_splunk_config(new_access_key, new_secret_key):
     """
@@ -180,6 +202,19 @@ def rotate_keys_simple():
             print("Sending LINE notifications...")
             line_msg = f"Cisco S3 Keys Rotated\n\nAccess Key: {new_access_key}\nSecret: {new_secret_key}"
             send_line_push(LINE_USER_ID, line_msg)
+
+        # =========================================================
+        # 4.1 NOTIFY VIA WEBEX (Toggle by commenting out)
+        # =========================================================
+        if WEBEX_WEBHOOK_URL:
+            print("Sending Webex notifications...")
+            webex_msg = (
+                f"🚀 **Cisco S3 Key Rotation Successful**\n\n"
+                f"**Access Key ID:** `{new_access_key}`\n"
+                f"**Secret Key:** `{new_secret_key}`\n\n"
+                f"Splunk has been updated automatically."
+            )
+            send_webex_notification(WEBEX_WEBHOOK_URL, webex_msg)
 
         # =========================================================
         # 5. NOTIFY VIA EMAIL (Toggle by commenting out)
