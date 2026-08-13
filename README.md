@@ -46,6 +46,7 @@ To avoid Local Privilege Escalation (LPE) vulnerabilities, this script should **
 
 **1. Grant standard Users access to edit the Splunk config files:**
 ```powershell
+takeown /f "C:\Program Files\Splunk\etc\apps\TA-cisco-cloud-security-addon" /r /d y
 icacls "C:\Program Files\Splunk\etc\apps\TA-cisco-cloud-security-addon" /grant "Users:(M)" /t
 ```
 
@@ -60,7 +61,7 @@ icacls $ScriptFolder /grant "Users:(RX)"
 ```
 
 **3. Create the Scheduled Task automatically:**
-This command creates a daily task to run the script at 2:00 AM as a standard user.
+This command creates a daily task to run the script at 2:00 AM as a standard user. If you don't to run at 2 AM daily, you can change it to the time needed.
 ```powershell
 $ScriptFolder = "$env:USERPROFILE\Documents\S3KEYROTATE"
 $ScriptPath = "$ScriptFolder\s3rotate_final.py"
