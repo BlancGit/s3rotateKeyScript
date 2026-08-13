@@ -25,6 +25,10 @@ DISCORD_WEBHOOK_URL = os.getenv("DISCORD_PUBLIC_WEBHOOK")
 # PRIVATE CHANNEL: Sends the Master Key (For Admin/Boss only)
 ADMIN_WEBHOOK_URL = os.getenv("DISCORD_ADMIN_WEBHOOK")
 
+# WEBEX CONFIGURATION
+WEBEX_PUBLIC_WEBHOOK = os.getenv("WEBEX_PUBLIC_WEBHOOK")
+WEBEX_ADMIN_WEBHOOK = os.getenv("WEBEX_ADMIN_WEBHOOK")
+
 # SPLUNK CONFIGURATION
 SPLUNK_ACCOUNT_CONFIG_PATH = os.getenv("SPLUNK_ACCOUNT_CONFIG_PATH")
 SPLUNK_INPUTS_CONFIG_PATH = os.getenv("SPLUNK_INPUTS_CONFIG_PATH")
@@ -110,6 +114,23 @@ def send_line_push(target_uid, message_text):
     except Exception as e:
         print(f"Error sending LINE message: {e}")
 
+def send_webex_notification(webhook_url, message_text):
+    """
+    Sends a markdown notification to a Webex Room.
+    """
+    if not webhook_url:
+        return
+
+    headers = {"Content-Type": "application/json"}
+    payload = {"markdown": message_text}
+    
+    try:
+        response = requests.post(webhook_url, json=payload, headers=headers)
+        if response.status_code not in [200, 204]:
+            print(f"Failed to send Webex message. Status: {response.status_code}")
+    except Exception as e:
+        print(f"Error sending Webex message: {e}")
+
 def update_splunk_config(new_access_key, new_secret_key):
     """
     Automatically updates the Splunk Add-on configuration files.
@@ -162,7 +183,10 @@ def rotate_keys_discord():
     try:
         # --- PART 1: ROTATE KEYS ---
         print("Authenticating with Cisco SSE API...")
-        token_resp = requests.post(auth_url, auth=(CLIENT_ID, CLIENT_SECRET), data={"grant_type": "client_credentials"})
+        token_resp = requests.post(auth_url, auth=(CLIENT_ID, CLIENT_SECRET), data={"grant_type": "client_credentials"}, allow_redirects=False)
+        if token_resp.status_code in [301, 302]:
+            print(f"FIREWALL/PROXY REDIRECT DETECTED! Intercepted by: {token_resp.headers.get('Location')}")
+            return
         token_resp.raise_for_status()
         token = token_resp.json().get("access_token")
         
@@ -218,6 +242,22 @@ def rotate_keys_discord():
             admin_payload = {"content": admin_content}
             requests.post(ADMIN_WEBHOOK_URL, json=admin_payload)
             print("SUCCESS! Master Key delivered to Admin.")
+
+        # =========================================================
+        # 3.1 NOTIFY VIA WEBEX (Toggle by commenting out)
+        # =========================================================
+        if WEBEX_PUBLIC_WEBHOOK or WEBEX_ADMIN_WEBHOOK:
+            print("\nPerforming secure split-delivery on Webex...")
+            b64_data = base64.b64encode(encrypted_data).decode('utf-8')
+            
+            if WEBEX_PUBLIC_WEBHOOK:
+                webex_public_msg = f"**📦 S3 ENCRYPTED DATA (Part 1/2)**\n\n**Payload:**\n`{b64_data}`\n\n*Note: This data is useless without the Master Key held by Admin.*"
+                send_webex_notification(WEBEX_PUBLIC_WEBHOOK, webex_public_msg)
+            
+            if WEBEX_ADMIN_WEBHOOK:
+                webex_admin_msg = f"**🔑 S3 MASTER KEY (Part 2/2)**\n\n**Key:** `{decoded_master_key}`\n\n*Note: Use this to unlock the payload in the Public channel.*"
+                send_webex_notification(WEBEX_ADMIN_WEBHOOK, webex_admin_msg)
+            print("SUCCESS! Webex split-delivery complete.")
 
         # =========================================================
         # 4. NOTIFY VIA LINE (Toggle by commenting out)

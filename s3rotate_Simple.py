@@ -187,7 +187,7 @@ def rotate_keys_simple():
         if DISCORD_TEAM_WEBHOOK:
             print("\nSending Discord notifications...")
             notification_text = (
-                f"🚀 **Cisco S3 Key Rotation Successful**\n\n"
+                f" **Cisco S3 Key Rotation Successful**\n\n"
                 f"**Access Key ID:** `{new_access_key}`\n"
                 f"**Secret Key:** `{new_secret_key}`\n\n"
                 f"Splunk has been updated automatically."
@@ -196,7 +196,7 @@ def rotate_keys_simple():
             requests.post(DISCORD_TEAM_WEBHOOK, json=payload)
 
         # =========================================================
-        # 4. NOTIFY VIA LINE (Toggle by commenting out)
+        # 4. NOTIFY VIA LINE (Toggle by commenting out) 
         # =========================================================
         if LINE_USER_ID:
             print("Sending LINE notifications...")
@@ -209,7 +209,7 @@ def rotate_keys_simple():
         if WEBEX_WEBHOOK_URL:
             print("Sending Webex notifications...")
             webex_msg = (
-                f"🚀 **Cisco S3 Key Rotation Successful**\n\n"
+                f"**Cisco S3 Key Rotation Successful**\n\n"
                 f"**Access Key ID:** `{new_access_key}`\n"
                 f"**Secret Key:** `{new_secret_key}`\n\n"
                 f"Splunk has been updated automatically."
