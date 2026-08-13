@@ -71,7 +71,7 @@ This project addresses the risk of credential theft and single-point-of-compromi
 - Utilizing encrypted API-based delivery to bypass restrictive corporate firewalls.
 
 ---
-ps: There is also a simple version of the script that does not encrypt the keys, refer to s3rottate_Simple.py
+ps: There is also a simple version of the script that does not encrypt the keys, refer to s3rotate_Simple.py
 ---
 **Author:** Suttipon Rattana (Blanc)
 **Status:** Production Ready
