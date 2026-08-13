@@ -41,11 +41,34 @@ cp .env.example .env
 ```
 Ensure the `SPLUNK_..._PATH` variables point to your local Splunk installation's `etc/apps/.../local/` directory.
 
-### 3. Deployment (Windows Server/RDP)
-1. Place `s3rotate_final.py` and your `.env` file in a secure directory.
-2. Open **Windows Task Scheduler**.
-3. Create a new task to run every 90 days.
-4. **Important**: Check "Run with highest privileges" (required for file system access to Splunk `.conf` files).
+### 3. Secure Deployment (Windows Server/RDP)
+To avoid Local Privilege Escalation (LPE) vulnerabilities, this script should **not** be run with Administrator privileges. Follow these steps to secure the deployment using PowerShell:
+
+**1. Grant standard Users access to edit the Splunk config files:**
+```powershell
+icacls "C:\Program Files\Splunk\etc\apps\TA-cisco-cloud-security-addon" /grant "Users:(M)" /t
+```
+
+**2. Lock down your script directory (prevent tampering):**
+Assuming your script is located at `$env:USERPROFILE\Documents\S3KEYROTATE`, run:
+```powershell
+$ScriptFolder = "$env:USERPROFILE\Documents\S3KEYROTATE"
+icacls $ScriptFolder /inheritance:d
+icacls $ScriptFolder /grant "Administrators:(F)" /grant "SYSTEM:(F)"
+icacls $ScriptFolder /remove "Users"
+icacls $ScriptFolder /grant "Users:(RX)"
+```
+
+**3. Create the Scheduled Task automatically:**
+This command creates a daily task to run the script at 2:00 AM as a standard user.
+```powershell
+$ScriptFolder = "$env:USERPROFILE\Documents\S3KEYROTATE"
+$ScriptPath = "$ScriptFolder\s3rotate_final.py"
+
+$trigger = New-ScheduledTaskTrigger -Daily -At 2am
+$action = New-ScheduledTaskAction -Execute "python" -Argument $ScriptPath -WorkingDirectory $ScriptFolder
+Register-ScheduledTask -TaskName "Secure S3 Key Rotation" -Trigger $trigger -Action $action -Description "Automated Cisco S3 Rotation (Secure)"
+```
 
 ## Usage
 
